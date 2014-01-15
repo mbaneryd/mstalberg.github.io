@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+ 
+ <title>Magnus Stålberg</title>
+ <link href="http://mstalberg.se/atom.xml" rel="self"/>
+ <link href="http://mstalberg.se/"/>
+ <updated>2014-01-15T15:23:32+01:00</updated>
+ <id>http://mstalberg.se</id>
+ <author>
+   <name>Magnus Stålberg</name>
+ </author>
+ 
+ 
+ <entry>
+   <title>Preview for pptx, docx, pdf using google docs viewer</title>
+   <link href="http://mstalberg.se/2013/11/25/preview-for-pptx-docx/"/>
+   <updated>2013-11-25T18:12:00+01:00</updated>
+   <id>http://mstalberg.se/2013/11/25/preview-for-pptx-docx</id>
+   <content type="html">This is the same sample as I showed on EPiServer Partner Tech summit, and it shows how you could extend the edit UI with a preview of pptx, docx etc using the Google Docs Viewer.
+
+</content>
+ </entry>
+ 
+ 
+</feed>

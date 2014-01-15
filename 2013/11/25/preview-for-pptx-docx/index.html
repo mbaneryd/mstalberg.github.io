@@ -1,0 +1,204 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Preview for pptx, docx, pdf using google docs viewer -  mstalberg.se</title>
+
+    <link rel="stylesheet" href="/stylesheets/styles.css">
+    <!-- <meta name="viewport" content="width=device-width, initial-scale=scr1, user-scalable=no"> -->
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="header_wrap" class="outer">
+      <header class="inner">
+        <a href="https://github.com/mstalberg" id="forkme_banner">View on github</a>
+        <a href="/"><h1 id="project_title">mstalberg.se</h1></a>
+        <!-- <h2 id="project_tagline"></h2> -->
+      <h2 id="project_tagline">EPiServer front-end ramblings</h2>
+        <!-- <a href="/"><h1>mstalberg.se</h1></a> -->
+        <!-- <p>My name is Magnus Stålberg and works as team/dev lead for our front-end team at EPiServer AB.</p> -->
+
+        <!-- <p class="view"><a href="https://github.com/mstalberg">View My GitHub Profile</a></p> -->
+
+      </header>
+    </div>
+    <div id="main_content_wrap" class="outer">
+      <div id="main_content" class="inner">
+        <section>
+    <article>
+        <h3>Preview for pptx, docx, pdf using google docs viewer</h3>
+        <p class="meta"><span>25 Nov 2013</span>
+&mdash;  <a href="/tags/episerver" rel="tooltip" title="View pages tagged with &quot;episerver&quot;"><span class="label label-info">episerver</span></a>     <a href="/tags/google docs" rel="tooltip" title="View pages tagged with &quot;google docs&quot;"><span class="label label-info">google docs</span></a>     <a href="/tags/c#" rel="tooltip" title="View pages tagged with &quot;c#&quot;"><span class="label label-info">c#</span></a>   </p>
+
+        <div>
+        <p>This is the same sample as I showed on EPiServer Partner Tech summit, and it shows how you could extend the edit UI with a preview of pptx, docx etc using the Google Docs Viewer.</p>
+
+<p>First we need to create a new content type and tell the system for which file extensions it should be used. 
+We do that by creating a new media type and add the MediaDescriptor on the new type. 
+When you upload a file with the extensions defined on the MediaDescriptor an instance of the Document content type will be created.</p>
+
+<p>We also want to set the default view for the Document when it&#39;s opened in edit mode, and we can do that by adding
+a new UIDescriptor for the Document and set the DefaultView to CmsViewNames.OnPageEditView.</p>
+
+<h4>Hello Models\Media\Document.cs</h4>
+
+<div class="highlight"><pre><code class="c#"><span class="k">using</span> <span class="nn">EPiServer.Core</span><span class="p">;</span>
+<span class="k">using</span> <span class="nn">EPiServer.DataAnnotations</span><span class="p">;</span>
+<span class="k">using</span> <span class="nn">EPiServer.Framework.DataAnnotations</span><span class="p">;</span>
+<span class="k">using</span> <span class="nn">EPiServer.Shell</span><span class="p">;</span>
+
+<span class="k">namespace</span> <span class="nn">EPiServer.Templates.Alloy.Models.Media</span>
+<span class="p">{</span>
+<span class="na">    [ContentType(GUID = &quot;E1D862F6-9E8D-4F0C-822F-028FD7FAD33E&quot;)]</span>
+<span class="na">    [MediaDescriptor(ExtensionString = &quot;docx,pdf,txt,pptx,xlsx&quot;)]</span>
+    <span class="k">public</span> <span class="k">class</span> <span class="nc">Document</span> <span class="p">:</span> <span class="n">MediaData</span> 
+    <span class="p">{</span>
+        <span class="c1">/// &lt;summary&gt;</span>
+        <span class="c1">/// Gets or sets the copyright for the document.</span>
+        <span class="c1">/// &lt;/summary&gt;</span>
+        <span class="k">public</span> <span class="k">virtual</span> <span class="kt">string</span> <span class="n">Copyright</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+    <span class="p">}</span>
+
+<span class="na">    [UIDescriptorRegistration]</span>
+    <span class="k">public</span> <span class="k">class</span> <span class="nc">DocumentUIDescriptor</span> <span class="p">:</span> <span class="n">UIDescriptor</span><span class="p">&lt;</span><span class="n">Document</span><span class="p">&gt;</span>
+    <span class="p">{</span>
+        <span class="k">public</span> <span class="nf">DocumentUIDescriptor</span><span class="p">()</span>
+        <span class="p">{</span>
+            <span class="c1">// Set the default &quot;edit view&quot; for the document type to be the On page edit view</span>
+            <span class="n">DefaultView</span> <span class="p">=</span> <span class="n">CmsViewNames</span><span class="p">.</span><span class="n">OnPageEditView</span><span class="p">;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>To be able to take over the OPE/Preview mode for the Document we need to create a new Mvc controller and add the TemplateDescriptor attribute to it and also set the correct tags.</p>
+
+<h4>Controllers\DocumentController.cs</h4>
+
+<div class="highlight"><pre><code class="c#"><span class="k">using</span> <span class="nn">System</span><span class="p">;</span>
+<span class="k">using</span> <span class="nn">System.Web.Mvc</span><span class="p">;</span>
+<span class="k">using</span> <span class="nn">EPiServer.Framework.DataAnnotations</span><span class="p">;</span>
+<span class="k">using</span> <span class="nn">EPiServer.Framework.Web</span><span class="p">;</span>
+<span class="k">using</span> <span class="nn">EPiServer.Templates.Alloy.Models.Media</span><span class="p">;</span>
+<span class="k">using</span> <span class="nn">EPiServer.Web</span><span class="p">;</span>
+<span class="k">using</span> <span class="nn">EPiServer.Web.Mvc</span><span class="p">;</span>
+<span class="k">using</span> <span class="nn">EPiServer.Web.Routing</span><span class="p">;</span>
+
+<span class="k">namespace</span> <span class="nn">EPiServer.Templates.Alloy.Controllers</span>
+<span class="p">{</span>
+<span class="na">    [TemplateDescriptor(</span>
+<span class="na">        Default = true,</span>
+<span class="na">        Inherited = true,</span>
+<span class="na">        AvailableWithoutTag = false,</span>
+<span class="na">        TemplateTypeCategory = TemplateTypeCategories.MvcController,</span>
+<span class="na">        Tags = new[]</span> <span class="p">{</span> <span class="n">RenderingTags</span><span class="p">.</span><span class="n">Edit</span><span class="p">,</span> <span class="n">RenderingTags</span><span class="p">.</span><span class="n">Preview</span> <span class="p">})]</span>
+    <span class="k">public</span> <span class="k">class</span> <span class="nc">DocumentController</span> <span class="p">:</span> <span class="n">PartialContentController</span><span class="p">&lt;</span><span class="n">Document</span><span class="p">&gt;</span>
+    <span class="p">{</span>
+        <span class="k">private</span> <span class="k">readonly</span> <span class="n">UrlResolver</span> <span class="n">_urlResolver</span><span class="p">;</span>
+        <span class="k">private</span> <span class="k">readonly</span> <span class="n">SiteDefinition</span> <span class="n">_siteDefinition</span><span class="p">;</span>
+
+        <span class="k">public</span> <span class="nf">DocumentController</span><span class="p">(</span><span class="n">UrlResolver</span> <span class="n">urlResolver</span><span class="p">,</span> <span class="n">SiteDefinition</span> <span class="n">siteDefinition</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="n">_urlResolver</span> <span class="p">=</span> <span class="n">urlResolver</span><span class="p">;</span>
+            <span class="n">_siteDefinition</span> <span class="p">=</span> <span class="n">siteDefinition</span><span class="p">;</span>
+        <span class="p">}</span>
+
+        <span class="c1">/// &lt;summary&gt;</span>
+        <span class="c1">/// The index action for the image file. Creates the view model and renders the view.</span>
+        <span class="c1">/// &lt;/summary&gt;</span>
+        <span class="c1">/// &lt;param name=&quot;currentContent&quot;&gt;The current image file.&lt;/param&gt;</span>
+        <span class="k">public</span> <span class="k">override</span> <span class="n">ActionResult</span> <span class="nf">Index</span><span class="p">(</span><span class="n">Document</span> <span class="n">currentContent</span><span class="p">)</span>
+        <span class="p">{</span>  
+            <span class="c1">//Generate an external url</span>
+            <span class="kt">var</span> <span class="n">uri</span> <span class="p">=</span> <span class="k">new</span> <span class="n">Uri</span><span class="p">(</span><span class="n">_siteDefinition</span><span class="p">.</span><span class="n">SiteUrl</span><span class="p">,</span> <span class="n">_urlResolver</span><span class="p">.</span><span class="n">GetUrl</span><span class="p">(</span><span class="n">currentContent</span><span class="p">,</span> <span class="k">new</span> <span class="n">VirtualPathArguments</span>
+            <span class="p">{</span>
+                <span class="c1">// We want a url to the view mode (public)</span>
+                <span class="n">ContextMode</span> <span class="p">=</span> <span class="n">ContextMode</span><span class="p">.</span><span class="n">Default</span>
+            <span class="p">}));</span>
+            
+            <span class="k">return</span> <span class="nf">View</span><span class="p">(</span><span class="k">new</span> <span class="n">DocumentModel</span>
+            <span class="p">{</span>
+                <span class="n">Url</span> <span class="p">=</span> <span class="n">uri</span><span class="p">.</span><span class="n">ToString</span><span class="p">(),</span>
+                <span class="n">Name</span> <span class="p">=</span> <span class="n">currentContent</span><span class="p">.</span><span class="n">Name</span>
+            <span class="p">});</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">class</span> <span class="nc">DocumentModel</span>
+    <span class="p">{</span>
+        <span class="k">public</span> <span class="kt">string</span> <span class="n">Url</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+        <span class="k">public</span> <span class="kt">string</span> <span class="n">Name</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<h4>Views\Document\Index.cshtml</h4>
+
+<div class="highlight"><pre><code class="html">@model EPiServer.Templates.Alloy.Controllers.DocumentModel
+@{
+    Layout = null;
+}
+
+<span class="cp">&lt;!DOCTYPE html&gt;</span>
+
+<span class="nt">&lt;html&gt;</span>
+<span class="nt">&lt;head&gt;</span>
+    <span class="nt">&lt;meta</span> <span class="na">name=</span><span class="s">&quot;viewport&quot;</span> <span class="na">content=</span><span class="s">&quot;width=device-width&quot;</span> <span class="nt">/&gt;</span>
+    <span class="nt">&lt;title&gt;</span>Document<span class="nt">&lt;/title&gt;</span>
+    <span class="nt">&lt;style&gt;</span>
+        <span class="nt">html</span> <span class="p">{</span>
+            <span class="k">height</span><span class="o">:</span> <span class="m">100</span><span class="o">%</span><span class="p">;</span>
+        <span class="p">}</span>
+        <span class="nt">body</span> <span class="p">{</span>
+            <span class="k">margin</span><span class="o">:</span> <span class="m">0</span><span class="p">;</span>
+            <span class="k">width</span><span class="o">:</span> <span class="m">100</span><span class="o">%</span><span class="p">;</span>
+            <span class="k">height</span><span class="o">:</span> <span class="m">100</span><span class="o">%</span><span class="p">;</span>
+        <span class="p">}</span>
+        <span class="nt">iframe</span> <span class="p">{</span>
+            <span class="k">width</span><span class="o">:</span> <span class="m">100</span><span class="o">%</span><span class="p">;</span>
+            <span class="k">height</span><span class="o">:</span> <span class="m">100</span><span class="o">%</span><span class="p">;</span>
+        <span class="p">}</span>
+    <span class="nt">&lt;/style&gt;</span>
+<span class="nt">&lt;/head&gt;</span>
+<span class="nt">&lt;body&gt;</span>
+        <span class="nt">&lt;iframe</span> <span class="na">src=</span><span class="s">&quot;http://docs.google.com/viewer?url=@Model.Url&amp;&amp;embedded=true&quot;</span><span class="nt">&gt;&lt;/iframe&gt;</span>
+<span class="nt">&lt;/body&gt;</span>
+<span class="nt">&lt;/html&gt;</span>
+</code></pre></div>
+
+        </div>
+        
+        <h3>Comments</h3>
+        <div id="disqus_thread"></div>
+        <script type="text/javascript">
+            /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+            var disqus_shortname = 'mstalbergse'; // required: replace example with your forum shortname
+
+            /* * * DON'T EDIT BELOW THIS LINE * * */
+            (function() {
+                var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+                dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+                (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+            })();
+        </script>
+        <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+        <a href="http://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+        
+    </article>
+</section>
+
+      </div>
+    </div>
+
+    <div id="foot_wrap" class="outer">
+      <footer class="inner">
+        <p>Hosted on GitHub Pages &mdash; <a href="https://github.com/mstalberg/">https://github.com/mstalberg/</a></p>
+      </footer>
+    </div>
+    <script src="/javascripts/scale.fix.js"></script>
+    
+  </body>
+</html>
